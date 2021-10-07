@@ -6,7 +6,7 @@ install:
   - pip install poetry
   - poetry install
 script:
-  - black --check -v nvelope/ test/
+  - black --check -v nvelope/ tests/
   - mypy .
   - pytest --cov nvelope/ --cov-report xml
 after_success:
