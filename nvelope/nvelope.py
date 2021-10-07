@@ -241,7 +241,6 @@ datetime_iso_format_conv = WithTypeCheck(
         from_json=lambda s: datetime.datetime.fromisoformat(s),
     ),
 )
-datetime.datetime.now().fromtimestamp(111)
 
 identity_conv = ConversionOf(to_json=identity, from_json=identity)
 
