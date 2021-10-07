@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "nvelope"
+version = "0.1.0"
+description = "Painless JSON marshalling and unmarshalling"
+authors = ["monomonedula <valh@tuta.io>"]
+readme = 'README.md'
+license = "MIT"
+repository = "https://github.com/monomonedula/nvelope"
+homepage = "https://github.com/monomonedula/nvelope"
+keywords = [
+    "serialization",
+    "deserialization",
+    "json",
+    "marshalling",
+    "unmarshalling",
+    "utility",
+]
+classifiers = [
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: MIT License",
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+pytest-cov = "^3.0.0"
+black = "^21.9b0"
+mypy = "^0.910"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
