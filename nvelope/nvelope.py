@@ -2,7 +2,18 @@ import datetime
 import inspect
 from abc import ABC, abstractmethod
 from dataclasses import asdict
-from typing import TypeVar, Union, Dict, Any, List, Generic, Type, Optional, Callable
+from typing import (
+    TypeVar,
+    Union,
+    Dict,
+    Any,
+    List,
+    Generic,
+    Type,
+    Optional,
+    Callable,
+    cast,
+)
 
 T = TypeVar("T")
 JSON = Union[Dict[str, Any], List[Any], int, str, float, bool, None]
@@ -238,11 +249,11 @@ datetime_iso_format_conv = WithTypeCheck(
     datetime.datetime,
     ConversionOf(
         to_json=lambda v: v.isoformat(),
-        from_json=lambda s: datetime.datetime.fromisoformat(s),
+        from_json=lambda s: datetime.datetime.fromisoformat(cast(str, s)),
     ),
 )
 
-identity_conv = ConversionOf(to_json=identity, from_json=identity)
+identity_conv: Conversion[JSON] = ConversionOf(to_json=identity, from_json=identity)
 
 string_conv = WithTypeCheck(
     str,
