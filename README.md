@@ -62,8 +62,8 @@ class User(Obj):
     }
 
     id: int
-    language_code: Optional[str]
-    username: Optional[str]
+    language_code: str
+    username: str
 
 ```
 
