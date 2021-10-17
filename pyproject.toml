@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nvelope"
-version = "0.1.0"
+version = "0.2.0"
 description = "Painless JSON marshalling and unmarshalling"
 authors = ["monomonedula <valh@tuta.io>"]
 readme = 'README.md'
