@@ -1,7 +1,7 @@
 import datetime
 import inspect
 from abc import ABC, abstractmethod
-from dataclasses import asdict
+from dataclasses import fields
 from typing import (
     TypeVar,
     Union,
@@ -13,10 +13,15 @@ from typing import (
     Optional,
     Callable,
     cast,
+    Mapping,
 )
 
 T = TypeVar("T")
 JSON = Union[Dict[str, Any], List[Any], int, str, float, bool, None]
+
+
+def asdict(obj):
+    return {f.name: getattr(obj, f.name) for f in fields(obj)}
 
 
 class MaybeMissing(Generic[T], ABC):
@@ -122,7 +127,7 @@ class Arr(Compound, Generic[T]):
     _items: List[T]
 
     def __init__(self, items: List[T]):
-        self._items = items
+        self._items: List[T] = items
 
     def __iter__(self):
         return iter(self._items)
@@ -271,3 +276,41 @@ bool_conv = WithTypeCheck(
     bool,
     identity_conv,
 )
+
+
+class ListConversion(Conversion[List[T]]):
+    def __init__(self, item_conv: Conversion[T]):
+        self._conv: Conversion[T] = item_conv
+
+    def to_json(self, value: List[T]) -> JSON:
+        assert isinstance(value, list)
+        return [self._conv.to_json(v) for v in value]
+
+    def from_json(self, obj: JSON) -> List[T]:
+        assert isinstance(obj, list)
+        return [self._conv.from_json(v) for v in obj]
+
+
+K = TypeVar("K")
+V = TypeVar("V")
+
+
+class MappingConv(Conversion[Mapping[K, V]]):
+    def __init__(self, key_conv: Conversion[K], val_conv: Conversion[V]):
+        self._key_conv: Conversion[K] = key_conv
+        self._val_conv: Conversion[V] = val_conv
+
+    def to_json(self, value: Mapping[K, V]) -> JSON:
+        d = {}
+        for k, v in value.items():
+            key = self._key_conv.to_json(k)
+            assert isinstance(key, str)
+            d[key] = self._val_conv.to_json(v)
+        return d
+
+    def from_json(self, obj: JSON) -> Mapping[K, V]:
+        assert isinstance(obj, dict)
+        return {
+            self._key_conv.from_json(k): self._val_conv.from_json(v)
+            for k, v in obj.items()
+        }

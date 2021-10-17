@@ -1,7 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import Optional
-
+from typing import Optional, List, Dict
 
 from nvelope.nvelope import (
     Obj,
@@ -15,6 +14,9 @@ from nvelope.nvelope import (
     datetime_iso_format_conv,
     Miss,
     OptionalConv,
+    ListConversion,
+    MappingConv,
+    ConversionOf,
 )
 
 
@@ -302,3 +304,43 @@ def test_datetime_iso_conv():
     now = datetime.datetime.now()
     assert datetime_iso_format_conv.from_json(now.isoformat()) == now
     assert datetime_iso_format_conv.to_json(now) == now.isoformat()
+
+
+def test_asdict_fix():
+    @dataclass
+    class Inner(Obj):
+        _conversion = {
+            "list_field": ListConversion(string_conv),
+        }
+
+        list_field: List[str]
+
+    @dataclass
+    class Dummy(Obj):
+        _conversion = {
+            "bl": CompoundConv(Inner),
+        }
+        bl: Inner
+
+    assert Dummy(Inner(["111.33.33.33"])).as_json() == {
+        "bl": {"list_field": ["111.33.33.33"]}
+    }
+
+
+def test_mapping_conv():
+    @dataclass
+    class Data(Obj):
+        _conversion = {
+            "mapping_field": MappingConv(
+                key_conv=ConversionOf(
+                    str,
+                    int,
+                ),
+                val_conv=string_conv,
+            )
+        }
+        mapping_field: Dict[int, str]
+
+    assert Data({443: "hello there"}).as_json() == {
+        "mapping_field": {"443": "hello there"}
+    }
