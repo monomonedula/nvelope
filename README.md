@@ -26,7 +26,7 @@ microservices communicating via JSON messages, both written in python.
 
 You may define a shared package with the messages definition 
 and use the model's `.as_json()` method on one end to serialize the message
-and `.form_json()` on the other to convert it into a DTO, 
+and `.from_json()` on the other to convert it into a DTO, 
 checking and modifying the fields and their values along
 the way exactly how you defined it in a single place.
 
