@@ -17,6 +17,7 @@ from nvelope.nvelope import (
     ListConversion,
     MappingConv,
     ConversionOf,
+    JSON,
 )
 
 
@@ -344,3 +345,31 @@ def test_mapping_conv():
     assert Data({443: "hello there"}).as_json() == {
         "mapping_field": {"443": "hello there"}
     }
+
+
+def test_inheritance():
+    @dataclass
+    class Human(Obj):
+        _conversion = {
+            "name": string_conv,
+            "age": int_conv,
+        }
+
+        name: str
+        age: int
+
+    @dataclass
+    class Employee(Human):
+        _conversion = {
+            **Human._conversion,
+            "experience": int_conv,
+        }
+
+        experience: int
+
+        @classmethod
+        def from_json(cls, j: JSON):
+            return super(Employee, cls).from_json(j)
+
+    j = Employee("Boris", 42, 20).as_json()
+    assert Employee.from_json(j) == Employee("Boris", 42, 20)

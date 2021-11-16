@@ -106,18 +106,18 @@ class Obj(Compound):
     def from_json(cls, parsed: JSON) -> "Obj":
         assert isinstance(parsed, dict)
         kwargs = {}
-        for name, t in cls.__annotations__.items():
-            field: Conversion = cls._conversion[name]
+        for f in fields(cls):
+            conv: Conversion = cls._conversion[f.name]
             if (
-                hasattr(t, "__origin__")
-                and inspect.isclass(t.__origin__)
-                and issubclass(t.__origin__, MaybeMissing)
+                hasattr(f.type, "__origin__")
+                and inspect.isclass(f.type.__origin__)
+                and issubclass(f.type.__origin__, MaybeMissing)
             ):
-                kwargs[name] = (
-                    Jst(field.from_json(parsed[name])) if name in parsed else Miss()
+                kwargs[f.name] = (
+                    Jst(conv.from_json(parsed[f.name])) if f.name in parsed else Miss()
                 )
             else:
-                kwargs[name] = field.from_json(parsed[name])
+                kwargs[f.name] = conv.from_json(parsed[f.name])
         return cls(**kwargs)  # type: ignore
 
 
@@ -171,21 +171,21 @@ class ObjWithAliases(Compound):
     def from_json(cls, parsed: JSON) -> "Obj":
         assert isinstance(parsed, dict)
         kwargs = {}
-        for name, t in cls.__annotations__.items():
-            field: Conversion = cls._conversion[name]
-            maybe_unescaped_name = cls._maybe_renamed(name)
+        for field in fields(cls):
+            conv: Conversion = cls._conversion[field.name]
+            maybe_unescaped_name = cls._maybe_renamed(field.name)
             if (
-                hasattr(t, "__origin__")
-                and inspect.isclass(t.__origin__)
-                and issubclass(t.__origin__, MaybeMissing)
+                hasattr(field.type, "__origin__")
+                and inspect.isclass(field.type.__origin__)
+                and issubclass(field.type.__origin__, MaybeMissing)
             ):
-                kwargs[name] = (
-                    Jst(field.from_json(parsed[maybe_unescaped_name]))
+                kwargs[field.name] = (
+                    Jst(conv.from_json(parsed[maybe_unescaped_name]))
                     if maybe_unescaped_name in parsed
                     else Miss()
                 )
             else:
-                kwargs[name] = field.from_json(parsed[maybe_unescaped_name])
+                kwargs[field.name] = conv.from_json(parsed[maybe_unescaped_name])
         return cls(**kwargs)  # type:  ignore
 
     @classmethod
