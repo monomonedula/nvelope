@@ -24,6 +24,16 @@ def asdict(obj):
     return {f.name: getattr(obj, f.name) for f in fields(obj)}
 
 
+def maybe_missing_field(f) -> bool:
+    if isinstance(f.type, str):
+        return f.type.startswith("MaybeMissing[")
+    return (
+        hasattr(f.type, "__origin__")
+        and inspect.isclass(f.type.__origin__)
+        and issubclass(f.type.__origin__, MaybeMissing)
+    )
+
+
 class MaybeMissing(Generic[T], ABC):
     @abstractmethod
     def value(self) -> T:
@@ -108,11 +118,7 @@ class Obj(Compound):
         kwargs = {}
         for f in fields(cls):
             conv: Conversion = cls._conversion[f.name]
-            if (
-                hasattr(f.type, "__origin__")
-                and inspect.isclass(f.type.__origin__)
-                and issubclass(f.type.__origin__, MaybeMissing)
-            ):
+            if maybe_missing_field(f):
                 kwargs[f.name] = (
                     Jst(conv.from_json(parsed[f.name])) if f.name in parsed else Miss()
                 )
@@ -174,11 +180,7 @@ class ObjWithAliases(Compound):
         for field in fields(cls):
             conv: Conversion = cls._conversion[field.name]
             maybe_unescaped_name = cls._maybe_renamed(field.name)
-            if (
-                hasattr(field.type, "__origin__")
-                and inspect.isclass(field.type.__origin__)
-                and issubclass(field.type.__origin__, MaybeMissing)
-            ):
+            if maybe_missing_field(field):
                 kwargs[field.name] = (
                     Jst(conv.from_json(parsed[maybe_unescaped_name]))
                     if maybe_unescaped_name in parsed
