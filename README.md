@@ -4,21 +4,27 @@
 
 Define your JSON schema as Python dataclasses
 
+This is basically sommething like JSON-schema. It works 
+with static type checking, since the classes you define are just regular
+python dataclasses which can (and should) be type checked with `mypy` library.
+
+
 ## Installation
 `pip install nvelope`
 
 
 ## The problem it solves
 
-This is basically sommething like JSON-schema, but it works 
-with static type checking, since the classes you define are just regular
-python dataclasses which can (and should) be type checked with `mypy` library.
+With `nvelope` you can define dataclasses which know how to convert themselves from/to JSON.
+All with custom checks and custom defined conversions from/to JSON for any type you want to put into your dataclass.
 
 
-It also lets not to just define the structure of your JSON data in a
-single place in your
-python code, but also to define
-custom checks and conversions from/to JSON for any type you want.
+### Why not pydantic?
+
+This library solves the problem quite similar to what [pydantic](https://pydantic-docs.helpmanual.io/) does.
+The key difference is that models in `nvelope` are able to convert themselves to JSON.
+
+It is also much smaller (~300 lines of code) and flexible which might be preferable if you want to dig into the source code and hack on it.
 
 ### Original use case
 Say you have two
