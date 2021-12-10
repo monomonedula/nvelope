@@ -287,8 +287,8 @@ class WithTypeCheck(Conversion[T]):
 
 
 class WithTypeCheckOnRead(Conversion[T]):
-    def __init__(self, t: Type[T], c: Conversion[T]):
-        self._t: Type[T] = t
+    def __init__(self, t: Type, c: Conversion[T]):
+        self._t: Type = t
         self._c: Conversion[T] = c
 
     def to_json(self, value: T) -> JSON:
@@ -299,9 +299,7 @@ class WithTypeCheckOnRead(Conversion[T]):
         return self._c.from_json(obj)
 
 
-def with_type_check(
-    on_dump: Type[T], on_read: Type[T], c: Conversion[T]
-) -> Conversion[T]:
+def with_type_check(on_dump: Type[T], on_read: Type, c: Conversion[T]) -> Conversion[T]:
     return WithTypeCheckOnRead(on_read, WithTypeCheck(on_dump, c))
 
 
