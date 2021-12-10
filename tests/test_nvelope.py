@@ -329,6 +329,9 @@ def test_asdict_fix():
     assert Dummy(Inner(["111.33.33.33"])).as_json() == {
         "bl": {"list_field": ["111.33.33.33"]}
     }
+    assert Dummy.from_json({"bl": {"list_field": ["111.33.33.33"]}}) == Dummy(
+        Inner(["111.33.33.33"])
+    )
 
 
 def test_mapping_conv():
@@ -348,6 +351,9 @@ def test_mapping_conv():
     assert Data({443: "hello there"}).as_json() == {
         "mapping_field": {"443": "hello there"}
     }
+    assert Data.from_json({"mapping_field": {"443": "hello there"}}) == Data(
+        {443: "hello there"}
+    )
 
 
 def test_inheritance():
@@ -422,3 +428,31 @@ def test_raises():
             {"foo": {"inner_field": "ok", "arr_field": [{"xyz": "bad val"}]}}
         )
     assert e.value.path == "foo.arr_field.<0>.xyz"
+    assert str(e.value) == "Path: 'foo.arr_field.<0>.xyz'"
+
+
+def test_raises_with_aliases():
+    @dataclass
+    class Inner(Obj):
+        _conversion = {
+            "inner_field": string_conv,
+        }
+
+        inner_field: str
+
+    @dataclass
+    class Dummy(ObjWithAliases):
+        _conversion = {
+            "foo": CompoundConv(Inner),
+        }
+        _alias_to_actual = {}
+
+        foo: Inner
+
+    with pytest.raises(NvelopeError) as e:
+        Dummy(Inner(123)).as_json()
+    assert e.value.path == "foo.inner_field"
+
+    with pytest.raises(NvelopeError) as e:
+        Dummy.from_json({"foo": {"inner_field": 123}})
+    assert e.value.path == "foo.inner_field"
