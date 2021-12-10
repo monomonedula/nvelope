@@ -104,26 +104,38 @@ class Obj(Compound):
     def as_json(self) -> JSON:
         obj = {}
         for name, item in asdict(self).items():
-            field: Conversion = self._conversion[name]
-            if isinstance(item, MaybeMissing):
-                if item.has():
-                    obj[name] = field.to_json(item.value())
-            else:
-                obj[name] = field.to_json(item)
+            try:
+                field: Conversion = self._conversion[name]
+                if isinstance(item, MaybeMissing):
+                    if item.has():
+                        obj[name] = field.to_json(item.value())
+                else:
+                    obj[name] = field.to_json(item)
+            except NvelopeError as e:
+                raise NvelopeError(f"{name}.{e.path}") from e
+            except Exception as e:
+                raise NvelopeError(name) from e
         return obj
 
     @classmethod
     def from_json(cls, parsed: JSON) -> "Obj":
-        assert isinstance(parsed, dict)
+        assert isinstance(parsed, dict), f"{parsed!r} Is not a dict"
         kwargs = {}
         for f in fields(cls):
-            conv: Conversion = cls._conversion[f.name]
-            if maybe_missing_field(f):
-                kwargs[f.name] = (
-                    Jst(conv.from_json(parsed[f.name])) if f.name in parsed else Miss()
-                )
-            else:
-                kwargs[f.name] = conv.from_json(parsed[f.name])
+            try:
+                conv: Conversion = cls._conversion[f.name]
+                if maybe_missing_field(f):
+                    kwargs[f.name] = (
+                        Jst(conv.from_json(parsed[f.name]))
+                        if f.name in parsed
+                        else Miss()
+                    )
+                else:
+                    kwargs[f.name] = conv.from_json(parsed[f.name])
+            except NvelopeError as e:
+                raise NvelopeError(f"{f.name}.{e.path}") from e
+            except Exception as e:
+                raise NvelopeError(f.name) from e
         return cls(**kwargs)  # type: ignore
 
 
@@ -147,12 +159,28 @@ class Arr(Compound, Generic[T]):
         return False
 
     def as_json(self) -> JSON:
-        return [self.conversion.to_json(i) for i in self._items]
+        j = []
+        for i, item in enumerate(self._items):
+            try:
+                j.append(self.conversion.to_json(item))
+            except NvelopeError as e:
+                raise NvelopeError(f"<{i}>.{e.path}") from e
+            except Exception as e:
+                raise NvelopeError(f"<{i}>") from e
+        return j
 
     @classmethod
     def from_json(cls, parsed: JSON) -> "Compound":
-        assert isinstance(parsed, list)
-        return cls([cls.conversion.from_json(i) for i in parsed])
+        assert isinstance(parsed, list), f"{parsed!r} is not a list"
+        arr = []
+        for i, item in enumerate(parsed):
+            try:
+                arr.append(cls.conversion.from_json(item))
+            except NvelopeError as e:
+                raise NvelopeError(f"<{i}>.{e.path}") from e
+            except Exception as e:
+                raise NvelopeError(f"<{i}>") from e
+        return cls(arr)
 
     def __repr__(self):
         return f"{self.__class__.__name__}{self._items!r}"
@@ -165,29 +193,39 @@ class ObjWithAliases(Compound):
     def as_json(self) -> JSON:
         obj = {}
         for name, item in asdict(self).items():
-            field: Conversion = self._conversion[name]
-            if isinstance(item, MaybeMissing):
-                if item.has():
-                    obj[self._maybe_renamed(name)] = field.to_json(item.value())
-            else:
-                obj[self._maybe_renamed(name)] = field.to_json(item)
+            try:
+                field: Conversion = self._conversion[name]
+                if isinstance(item, MaybeMissing):
+                    if item.has():
+                        obj[self._maybe_renamed(name)] = field.to_json(item.value())
+                else:
+                    obj[self._maybe_renamed(name)] = field.to_json(item)
+            except NvelopeError as e:
+                raise NvelopeError(f"{name}.{e.path}") from e
+            except Exception as e:
+                raise NvelopeError(name) from e
         return obj
 
     @classmethod
     def from_json(cls, parsed: JSON) -> "Obj":
-        assert isinstance(parsed, dict)
+        assert isinstance(parsed, dict), f"{parsed!r} is not a dict"
         kwargs = {}
         for field in fields(cls):
-            conv: Conversion = cls._conversion[field.name]
-            maybe_unescaped_name = cls._maybe_renamed(field.name)
-            if maybe_missing_field(field):
-                kwargs[field.name] = (
-                    Jst(conv.from_json(parsed[maybe_unescaped_name]))
-                    if maybe_unescaped_name in parsed
-                    else Miss()
-                )
-            else:
-                kwargs[field.name] = conv.from_json(parsed[maybe_unescaped_name])
+            try:
+                conv: Conversion = cls._conversion[field.name]
+                maybe_unescaped_name = cls._maybe_renamed(field.name)
+                if maybe_missing_field(field):
+                    kwargs[field.name] = (
+                        Jst(conv.from_json(parsed[maybe_unescaped_name]))
+                        if maybe_unescaped_name in parsed
+                        else Miss()
+                    )
+                else:
+                    kwargs[field.name] = conv.from_json(parsed[maybe_unescaped_name])
+            except NvelopeError as e:
+                raise NvelopeError(f"{field.name}.{e.path}") from e
+            except Exception as e:
+                raise NvelopeError(field.name) from e
         return cls(**kwargs)  # type:  ignore
 
     @classmethod
@@ -248,33 +286,58 @@ class WithTypeCheck(Conversion[T]):
         return self._c.from_json(obj)
 
 
+class WithTypeCheckOnRead(Conversion[T]):
+    def __init__(self, t: Type[T], c: Conversion[T]):
+        self._t: Type[T] = t
+        self._c: Conversion[T] = c
+
+    def to_json(self, value: T) -> JSON:
+        return self._c.to_json(value)
+
+    def from_json(self, obj: JSON) -> T:
+        assert isinstance(obj, self._t), f"Value {obj!r} is not of type {self._t!r}"
+        return self._c.from_json(obj)
+
+
+def with_type_check(
+    on_dump: Type[T], on_read: Type[T], c: Conversion[T]
+) -> Conversion[T]:
+    return WithTypeCheckOnRead(on_read, WithTypeCheck(on_dump, c))
+
+
 def identity(obj: T) -> T:
     return obj
 
 
-datetime_iso_format_conv = WithTypeCheck(
-    datetime.datetime,
-    ConversionOf(
-        to_json=lambda v: v.isoformat(),
-        from_json=lambda s: datetime.datetime.fromisoformat(cast(str, s)),
+datetime_iso_format_conv = WithTypeCheckOnRead(
+    str,
+    WithTypeCheck(
+        datetime.datetime,
+        ConversionOf(
+            to_json=lambda v: v.isoformat(),
+            from_json=lambda s: datetime.datetime.fromisoformat(cast(str, s)),
+        ),
     ),
 )
 
 identity_conv: Conversion[JSON] = ConversionOf(to_json=identity, from_json=identity)
 
-string_conv = WithTypeCheck(
+string_conv = with_type_check(
+    str,
     str,
     identity_conv,
 )
 
-float_conv = WithTypeCheck(float, identity_conv)
+float_conv = with_type_check(float, float, identity_conv)
 
-int_conv = WithTypeCheck(
+int_conv = with_type_check(
+    int,
     int,
     identity_conv,
 )
 
-bool_conv = WithTypeCheck(
+bool_conv = with_type_check(
+    bool,
     bool,
     identity_conv,
 )
@@ -285,11 +348,11 @@ class ListConversion(Conversion[List[T]]):
         self._conv: Conversion[T] = item_conv
 
     def to_json(self, value: List[T]) -> JSON:
-        assert isinstance(value, list)
+        assert isinstance(value, list), f"{value!r} is not a list"
         return [self._conv.to_json(v) for v in value]
 
     def from_json(self, obj: JSON) -> List[T]:
-        assert isinstance(obj, list)
+        assert isinstance(obj, list), f"{obj!r} is not a list"
         return [self._conv.from_json(v) for v in obj]
 
 
@@ -306,13 +369,25 @@ class MappingConv(Conversion[Mapping[K, V]]):
         d = {}
         for k, v in value.items():
             key = self._key_conv.to_json(k)
-            assert isinstance(key, str)
+            assert isinstance(key, str), f"{value!r} is not a string"
             d[key] = self._val_conv.to_json(v)
         return d
 
     def from_json(self, obj: JSON) -> Mapping[K, V]:
-        assert isinstance(obj, dict)
+        assert isinstance(obj, dict), f"{obj!r} is not a dict"
         return {
             self._key_conv.from_json(k): self._val_conv.from_json(v)
             for k, v in obj.items()
         }
+
+
+class NvelopeError(Exception):
+    def __init__(self, path, *args):
+        self.path: str = path
+        super(NvelopeError, self).__init__(*args)
+
+    def __str__(self):
+        base = f"Path: {self.path!r}"
+        if self.args:
+            return f"{base}; {','.join(self.args)}"
+        return base

@@ -2,6 +2,8 @@ import datetime
 from dataclasses import dataclass
 from typing import Optional, List, Dict
 
+import pytest
+
 from nvelope.nvelope import (
     Obj,
     CompoundConv,
@@ -18,6 +20,7 @@ from nvelope.nvelope import (
     MappingConv,
     ConversionOf,
     JSON,
+    NvelopeError,
 )
 
 
@@ -373,3 +376,49 @@ def test_inheritance():
 
     j = Employee("Boris", 42, 20).as_json()
     assert Employee.from_json(j) == Employee("Boris", 42, 20)
+
+
+def test_raises():
+    @dataclass
+    class Bar(Obj):
+        _conversion = {"xyz": int_conv}
+
+        xyz: int
+
+    class ArrInner(Arr):
+        conversion = CompoundConv(Bar)
+
+    @dataclass
+    class Inner(Obj):
+        _conversion = {
+            "inner_field": string_conv,
+            "arr_field": CompoundConv(ArrInner),
+        }
+
+        inner_field: str
+        arr_field: ArrInner
+
+    @dataclass
+    class Dummy(Obj):
+        _conversion = {
+            "foo": CompoundConv(Inner),
+        }
+        foo: Inner
+
+    with pytest.raises(NvelopeError) as e:
+        Dummy(Inner(123, ArrInner([]))).as_json()
+    assert e.value.path == "foo.inner_field"
+
+    with pytest.raises(NvelopeError) as e:
+        Dummy.from_json({"foo": {"inner_field": 123, "arr_field": []}})
+    assert e.value.path == "foo.inner_field"
+
+    with pytest.raises(NvelopeError) as e:
+        Dummy(Inner("ok", ArrInner([Bar("bad value")]))).as_json()
+    assert e.value.path == "foo.arr_field.<0>.xyz"
+
+    with pytest.raises(NvelopeError) as e:
+        Dummy.from_json(
+            {"foo": {"inner_field": "ok", "arr_field": [{"xyz": "bad val"}]}}
+        )
+    assert e.value.path == "foo.arr_field.<0>.xyz"
