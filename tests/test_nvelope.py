@@ -342,6 +342,7 @@ def test_mapping_conv():
                 key_conv=ConversionOf(
                     str,
                     int,
+                    {},
                 ),
                 val_conv=string_conv,
             )
