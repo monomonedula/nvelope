@@ -359,11 +359,16 @@ class WithTypeCheckOnRead(Conversion[T]):
         return self._c.schema()
 
 
-def with_type_check(on_dump: Type[T], on_read: Type, c: Conversion[T]) -> Conversion[T]:
+_T = TypeVar("_T")
+
+
+def with_type_check(
+    on_dump: Type[_T], on_read: Type, c: Conversion[_T]
+) -> Conversion[_T]:
     return WithTypeCheckOnRead(on_read, WithTypeCheck(on_dump, c))
 
 
-def identity(obj: T) -> T:
+def identity(obj: JSON) -> JSON:
     return obj
 
 
