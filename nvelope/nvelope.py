@@ -18,7 +18,7 @@ from typing import (
 
 from jsonschema import validate
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 JSON = Union[Dict[str, Any], List[Any], int, str, float, bool, None]
 
 
@@ -36,9 +36,9 @@ def maybe_missing_field(f) -> bool:
     )
 
 
-class MaybeMissing(Generic[T], ABC):
+class MaybeMissing(Generic[_T], ABC):
     @abstractmethod
-    def value(self) -> T:
+    def value(self) -> _T:
         pass  # pragma: no cover
 
     @abstractmethod
@@ -46,11 +46,11 @@ class MaybeMissing(Generic[T], ABC):
         pass  # pragma: no cover
 
 
-class Jst(MaybeMissing[T]):
-    def __init__(self, v: T):
-        self._val: T = v
+class Jst(MaybeMissing[_T]):
+    def __init__(self, v: _T):
+        self._val: _T = v
 
-    def value(self) -> T:
+    def value(self) -> _T:
         return self._val
 
     def has(self) -> bool:
@@ -65,11 +65,11 @@ class Jst(MaybeMissing[T]):
         return False
 
 
-class Miss(MaybeMissing[T]):
+class Miss(MaybeMissing[_T]):
     def has(self) -> bool:
         return False
 
-    def value(self) -> T:
+    def value(self) -> _T:
         raise ValueError("Missing value")
 
     def __repr__(self):
@@ -79,34 +79,34 @@ class Miss(MaybeMissing[T]):
         return isinstance(other, self.__class__)
 
 
-class Conversion(Generic[T], ABC):
+class Conversion(Generic[_T], ABC):
     @abstractmethod
-    def to_json(self, value: T) -> JSON:
-        pass
+    def to_json(self, value: _T) -> JSON:
+        pass  # pragma: no cover
 
     @abstractmethod
-    def from_json(self, obj: JSON) -> T:
-        pass
+    def from_json(self, obj: JSON) -> _T:
+        pass  # pragma: no cover
 
     @abstractmethod
     def schema(self) -> Dict[str, JSON]:
-        pass
+        pass  # pragma: no cover
 
 
 class Compound(ABC):
     @abstractmethod
     def as_json(self) -> JSON:
-        pass
+        pass  # pragma: no cover
 
     @classmethod
     @abstractmethod
     def from_json(cls, parsed: JSON) -> "Compound":
-        pass
+        pass  # pragma: no cover
 
     @classmethod
     @abstractmethod
     def schema(cls) -> Dict[str, JSON]:
-        pass
+        pass  # pragma: no cover
 
 
 class Obj(Compound):
@@ -160,13 +160,13 @@ class Obj(Compound):
         }
 
 
-class Arr(Compound, Generic[T]):
-    conversion: Conversion[T]
+class Arr(Compound, Generic[_T]):
+    conversion: Conversion[_T]
 
-    _items: List[T]
+    _items: List[_T]
 
-    def __init__(self, items: List[T]):
-        self._items: List[T] = items
+    def __init__(self, items: List[_T]):
+        self._items: List[_T] = items
 
     def __iter__(self):
         return iter(self._items)
@@ -268,16 +268,16 @@ class ObjWithAliases(Compound):
         }
 
 
-class OptionalConv(Conversion[Optional[T]]):
-    def __init__(self, f: Conversion[T]):
-        self._f: Conversion[T] = f
+class OptionalConv(Conversion[Optional[_T]]):
+    def __init__(self, f: Conversion[_T]):
+        self._f: Conversion[_T] = f
 
-    def to_json(self, value: Optional[T]) -> JSON:
+    def to_json(self, value: Optional[_T]) -> JSON:
         if value is None:
             return None
         return self._f.to_json(value)
 
-    def from_json(self, obj: JSON) -> Optional[T]:
+    def from_json(self, obj: JSON) -> Optional[_T]:
         if obj is None:
             return None
         return self._f.from_json(obj)
@@ -306,60 +306,57 @@ class CompoundConv(Conversion[Compound]):
         return self._obj.schema()
 
 
-class ConversionOf(Conversion[T]):
+class ConversionOf(Conversion[_T]):
     def __init__(
         self,
-        to_json: Callable[[T], JSON],
-        from_json: Callable[[JSON], T],
+        to_json: Callable[[_T], JSON],
+        from_json: Callable[[JSON], _T],
         schema: Dict[str, JSON],
     ):
-        self._to_json: Callable[[T], JSON] = to_json
-        self._from_json: Callable[[JSON], T] = from_json
+        self._to_json: Callable[[_T], JSON] = to_json
+        self._from_json: Callable[[JSON], _T] = from_json
         self._schema: Dict[str, JSON] = schema
 
-    def to_json(self, value: T) -> JSON:
+    def to_json(self, value: _T) -> JSON:
         return self._to_json(value)
 
-    def from_json(self, obj: JSON) -> T:
+    def from_json(self, obj: JSON) -> _T:
         return self._from_json(obj)
 
     def schema(self) -> Dict[str, JSON]:
         return self._schema
 
 
-class WithTypeCheck(Conversion[T]):
-    def __init__(self, t: Type[T], c: Conversion[T]):
-        self._t: Type[T] = t
-        self._c: Conversion[T] = c
+class WithTypeCheck(Conversion[_T]):
+    def __init__(self, t: Type[_T], c: Conversion[_T]):
+        self._t: Type[_T] = t
+        self._c: Conversion[_T] = c
 
-    def to_json(self, value: T) -> JSON:
+    def to_json(self, value: _T) -> JSON:
         assert isinstance(value, self._t), f"Value {value!r} is not of type {self._t!r}"
         return self._c.to_json(value)
 
-    def from_json(self, obj: JSON) -> T:
+    def from_json(self, obj: JSON) -> _T:
         return self._c.from_json(obj)
 
     def schema(self) -> Dict[str, JSON]:
         return self._c.schema()
 
 
-class WithTypeCheckOnRead(Conversion[T]):
-    def __init__(self, t: Type, c: Conversion[T]):
+class WithTypeCheckOnRead(Conversion[_T]):
+    def __init__(self, t: Type, c: Conversion[_T]):
         self._t: Type = t
-        self._c: Conversion[T] = c
+        self._c: Conversion[_T] = c
 
-    def to_json(self, value: T) -> JSON:
+    def to_json(self, value: _T) -> JSON:
         return self._c.to_json(value)
 
-    def from_json(self, obj: JSON) -> T:
+    def from_json(self, obj: JSON) -> _T:
         assert isinstance(obj, self._t), f"Value {obj!r} is not of type {self._t!r}"
         return self._c.from_json(obj)
 
     def schema(self) -> Dict[str, JSON]:
         return self._c.schema()
-
-
-_T = TypeVar("_T")
 
 
 def with_type_check(
@@ -402,15 +399,15 @@ bool_conv = with_type_check(
 )
 
 
-class ListConversion(Conversion[List[T]]):
-    def __init__(self, item_conv: Conversion[T]):
-        self._conv: Conversion[T] = item_conv
+class ListConversion(Conversion[List[_T]]):
+    def __init__(self, item_conv: Conversion[_T]):
+        self._conv: Conversion[_T] = item_conv
 
-    def to_json(self, value: List[T]) -> JSON:
+    def to_json(self, value: List[_T]) -> JSON:
         assert isinstance(value, list), f"{value!r} is not a list"
         return [self._conv.to_json(v) for v in value]
 
-    def from_json(self, obj: JSON) -> List[T]:
+    def from_json(self, obj: JSON) -> List[_T]:
         assert isinstance(obj, list), f"{obj!r} is not a list"
         return [self._conv.from_json(v) for v in obj]
 
@@ -461,31 +458,31 @@ class NvelopeError(Exception):
         return base
 
 
-class WithSchema(Conversion[T]):
-    def __init__(self, c: Conversion[T], schema: Dict[str, JSON]):
-        self._c: Conversion[T] = c
+class WithSchema(Conversion[_T]):
+    def __init__(self, c: Conversion[_T], schema: Dict[str, JSON]):
+        self._c: Conversion[_T] = c
         self._schema: Dict[str, JSON] = schema
 
-    def to_json(self, value: T) -> JSON:
+    def to_json(self, value: _T) -> JSON:
         return self._c.to_json(value)
 
-    def from_json(self, obj: JSON) -> T:
+    def from_json(self, obj: JSON) -> _T:
         return self._c.from_json(obj)
 
     def schema(self) -> Dict[str, JSON]:
         return self._schema
 
 
-class Validated(Conversion[T]):
-    def __init__(self, c: Conversion[T]):
-        self._c: Conversion[T] = c
+class Validated(Conversion[_T]):
+    def __init__(self, c: Conversion[_T]):
+        self._c: Conversion[_T] = c
 
-    def to_json(self, value: T) -> JSON:
+    def to_json(self, value: _T) -> JSON:
         j = self._c.to_json(value)
         validate(j, self.schema())
         return j
 
-    def from_json(self, obj: JSON) -> T:
+    def from_json(self, obj: JSON) -> _T:
         validate(obj, self.schema())
         return self._c.from_json(obj)
 

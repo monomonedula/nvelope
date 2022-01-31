@@ -457,3 +457,44 @@ def test_raises_with_aliases():
     with pytest.raises(NvelopeError) as e:
         Dummy.from_json({"foo": {"inner_field": 123}})
     assert e.value.path == "foo.inner_field"
+
+
+def test_miss_repr():
+    assert repr(Miss()) == "Miss"
+
+
+def test_repr():
+    assert repr(Miss()) == "Miss"
+    assert repr(Jst("whatever")) == "Jst['whatever']"
+
+
+def test_jst_eq():
+    assert Jst("foo") != Miss()
+    assert Jst("foo") != Jst("bar")
+    assert Jst("foo") == Jst("foo")
+
+
+def test_miss_raises():
+    with pytest.raises(ValueError):
+        Miss().value()
+
+
+def test_arr_iter():
+    class Foo(Arr):
+        conversion = string_conv
+
+    foo = Foo(["abc", "def"])
+    assert list(foo) == ["abc", "def"]
+    assert foo[0] == "abc"
+
+
+def test_array_eq():
+    class Foo(Arr):
+        conversion = string_conv
+
+    class Bar(Arr):
+        conversion = string_conv
+
+    assert Foo(["abc", "def"]) == Foo(["abc", "def"])
+    assert Foo(["abc", "def"]) != Foo(["abc", "132"])
+    assert Foo(["abc", "def"]) != Bar(["abc", "def"])
