@@ -2,6 +2,7 @@ import datetime
 import inspect
 from abc import ABC, abstractmethod
 from dataclasses import fields
+from functools import lru_cache
 from typing import (
     TypeVar,
     Union,
@@ -150,6 +151,7 @@ class Obj(Compound):
         return cls(**kwargs)  # type: ignore
 
     @classmethod
+    @lru_cache()
     def schema(cls) -> Dict[str, JSON]:
         return {
             "type": "object",
@@ -204,6 +206,7 @@ class Arr(Compound, Generic[_T]):
         return cls(arr)
 
     @classmethod
+    @lru_cache()
     def schema(cls) -> Dict[str, JSON]:
         return {"type": "array", "items": cls.conversion.schema()}
 
@@ -258,6 +261,7 @@ class ObjWithAliases(Compound):
         return cls._alias_to_actual.get(name, name)
 
     @classmethod
+    @lru_cache()
     def schema(cls) -> Dict[str, JSON]:
         return {
             "type": "object",
