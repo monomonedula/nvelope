@@ -21,6 +21,7 @@ from nvelope.nvelope import (
     ConversionOf,
     JSON,
     NvelopeError,
+    AliasTable,
 )
 
 
@@ -280,17 +281,14 @@ def test_obj_with_aliases():
         txt: str
 
     @dataclass
-    class Foo(ObjWithAliases):
+    class Foo(Obj):
         _conversion = {
             "foo": string_conv,
             "from_": int_conv,
             "bar": CompoundConv(Bar),
             "baz": CompoundConv(Bar),
         }
-
-        _alias_to_actual = {
-            "from_": "from",
-        }
+        _alias_table = AliasTable({"from_": "from"})
 
         foo: str
         from_: int

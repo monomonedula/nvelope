@@ -16,6 +16,7 @@ from nvelope import (
     bool_conv,
     MaybeMissing,
     ObjWithAliases,
+    AliasTable,
 )
 
 
@@ -164,10 +165,13 @@ def test_arr_schema():
 
 
 def test_obj_with_aliases_schema():
+    @dataclass
     class Foo(ObjWithAliases):
-        _alias_to_actual = {
-            "def_": "def",
-        }
+        _alias_table = AliasTable(
+            alias_to_actual={
+                "def_": "def",
+            }
+        )
         _conversion = {
             "def_": string_conv,
             "foo": int_conv,
@@ -177,7 +181,10 @@ def test_obj_with_aliases_schema():
         foo: int
 
     assert Foo.schema() == {
-        "def": {"type": "string"},
-        "foo": {"type": "integer"},
         "type": "object",
+        "properties": {
+            "def": {"type": "string"},
+            "foo": {"type": "integer"},
+        },
+        "required": ["def", "foo"],
     }
