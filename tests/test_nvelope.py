@@ -642,6 +642,3 @@ def test_validated_undefined_conversion_arr():
         exc_info.value.args[0] == "'conversion' attribute is not defined for"
         " <class 'tests.test_nvelope.test_validated_undefined_conversion_arr.<locals>.Foo'>"
     )
-
-
-
