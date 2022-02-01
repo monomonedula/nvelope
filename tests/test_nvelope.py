@@ -12,7 +12,6 @@ from nvelope.nvelope import (
     MaybeMissing,
     Jst,
     Arr,
-    ObjWithAliases,
     datetime_iso_format_conv,
     Miss,
     OptionalConv,
@@ -440,7 +439,7 @@ def test_raises_with_aliases():
         inner_field: str
 
     @dataclass
-    class Dummy(ObjWithAliases):
+    class Dummy(Obj):
         _conversion = {
             "foo": CompoundConv(Inner),
         }

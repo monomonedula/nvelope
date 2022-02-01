@@ -15,7 +15,6 @@ from nvelope import (
     OptionalConv,
     bool_conv,
     MaybeMissing,
-    ObjWithAliases,
     AliasTable,
 )
 
@@ -166,7 +165,7 @@ def test_arr_schema():
 
 def test_obj_with_aliases_schema():
     @dataclass
-    class Foo(ObjWithAliases):
+    class Foo(Obj):
         _alias_table = AliasTable(
             alias_to_actual={
                 "def_": "def",
