@@ -21,9 +21,11 @@ from nvelope.nvelope import (
     JSON,
     NvelopeError,
     AliasTable,
+    validated,
 )
 
 
+@validated
 @dataclass
 class User(Obj):
     _conversion = {
@@ -37,6 +39,7 @@ class User(Obj):
     username: Optional[str]
 
 
+@validated
 @dataclass
 class Message(Obj):
     _conversion = {
@@ -49,6 +52,7 @@ class Message(Obj):
     message_id: int
 
 
+@validated
 @dataclass
 class Update(Obj):
     _conversion = {
@@ -60,6 +64,7 @@ class Update(Obj):
     message: MaybeMissing[Message]
 
 
+@validated
 class ArrayOfUpdate(Arr):
     conversion = CompoundConv(Update)
 
@@ -495,3 +500,148 @@ def test_array_eq():
     assert Foo(["abc", "def"]) == Foo(["abc", "def"])
     assert Foo(["abc", "def"]) != Foo(["abc", "132"])
     assert Foo(["abc", "def"]) != Bar(["abc", "def"])
+
+
+def test_leftovers_not_kept():
+    @dataclass
+    class Foo(Obj):
+        _conversion = {
+            "foo": string_conv,
+            "bar": int_conv,
+        }
+
+        foo: str
+        bar: int
+
+    assert Foo.from_json(
+        {"foo": "the moon is made of cheese", "bar": 1337, "hello": "there"}
+    ).__dict__ == {"bar": 1337, "foo": "the moon is made of cheese"}
+
+
+def test_leftovers_kept():
+    @dataclass
+    class Foo(Obj):
+        _keep_undefined = True
+        _conversion = {
+            "foo": string_conv,
+            "bar": int_conv,
+        }
+
+        foo: str
+        bar: int
+
+    foo = Foo.from_json(
+        {"foo": "the moon is made of cheese", "bar": 1337, "hello": "there"}
+    )
+    assert foo.__dict__ == {
+        "bar": 1337,
+        "foo": "the moon is made of cheese",
+        "hello": "there",
+    }
+    assert foo.as_json() == {
+        "bar": 1337,
+        "foo": "the moon is made of cheese",
+        "hello": "there",
+    }
+
+
+def test_validated_extra_fields_in_conversion():
+    with pytest.raises(
+        AssertionError,
+    ) as exc_info:
+
+        @validated
+        @dataclass
+        class Foo(Obj):
+            _conversion = {
+                "foo": string_conv,
+                "bar": int_conv,
+                "whoops": string_conv,
+            }
+
+            foo: str
+            bar: int
+
+    assert (
+        exc_info.value.args[0] == "Fields and conversions do not match!"
+        " The following keys from"
+        " <class 'tests.test_nvelope.test_validated_extra_fields_in_conversion.<locals>.Foo'>._conversion "
+        "are not defined as attributes: ['whoops']"
+    )
+
+
+def test_validated_missing_fields_in_conversion():
+    with pytest.raises(
+        AssertionError,
+    ) as exc_info:
+
+        @validated
+        @dataclass
+        class Foo(Obj):
+            _conversion = {
+                "foo": string_conv,
+                "bar": int_conv,
+            }
+
+            foo: str
+            bar: int
+            whoops: str
+
+    assert (
+        exc_info.value.args[0] == "Fields and conversions do not match! "
+        "The following fields are missing in the"
+        " <class 'tests.test_nvelope.test_validated_missing_fields_in_conversion.<locals>.Foo'>._conversion map:"
+        " ['whoops']. "
+    )
+
+
+def test_validated_undefined_conversion():
+    with pytest.raises(AssertionError) as exc_info:
+
+        @validated
+        @dataclass
+        class Foo(Obj):
+            foo: str
+            bar: int
+            whoops: str
+
+    assert (
+        exc_info.value.args[0] == "'_conversion' attribute is not defined for "
+        "<class 'tests.test_nvelope.test_validated_undefined_conversion.<locals>.Foo'>"
+    )
+
+
+def test_validated_not_dataclass():
+    with pytest.raises(AssertionError) as exc_info:
+
+        @validated
+        class Foo(Obj):
+            _conversion = {
+                "foo": string_conv,
+                "bar": int_conv,
+            }
+
+            foo: str
+            bar: int
+
+    assert (
+        exc_info.value.args[0]
+        == "<class 'tests.test_nvelope.test_validated_not_dataclass.<locals>.Foo'>"
+        " must be wrapped with a dataclasses.dataclass decorator"
+    )
+
+
+def test_validated_undefined_conversion_arr():
+    with pytest.raises(AssertionError) as exc_info:
+
+        @validated
+        class Foo(Arr):
+            pass
+
+    assert (
+        exc_info.value.args[0] == "'conversion' attribute is not defined for"
+        " <class 'tests.test_nvelope.test_validated_undefined_conversion_arr.<locals>.Foo'>"
+    )
+
+
+

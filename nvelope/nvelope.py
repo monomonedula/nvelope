@@ -1,7 +1,8 @@
 import datetime
 import inspect
+import typing
 from abc import ABC, abstractmethod
-from dataclasses import fields
+from dataclasses import fields, is_dataclass
 from functools import lru_cache
 from typing import (
     TypeVar,
@@ -16,8 +17,6 @@ from typing import (
     cast,
     Mapping,
 )
-
-from jsonschema import validate
 
 _T = TypeVar("_T")
 JSON = Union[Dict[str, Any], List[Any], int, str, float, bool, None]
@@ -132,7 +131,7 @@ class AliasTable:
 class Obj(Compound):
     _conversion: Dict[str, Conversion]
     _alias_table: AliasTable = AliasTable({})
-    _keep_leftovers = False
+    _keep_undefined = False
 
     def as_json(self) -> JSON:
         obj = {}
@@ -148,7 +147,7 @@ class Obj(Compound):
                 raise NvelopeError(f"{name}.{e.path}") from e
             except Exception as e:
                 raise NvelopeError(name) from e
-        if self._keep_leftovers:
+        if self._keep_undefined:
             for key, value in self.__dict__.items():
                 if key not in obj:
                     obj[key] = value
@@ -175,7 +174,7 @@ class Obj(Compound):
             except Exception as e:
                 raise NvelopeError(field.name) from e
         obj = cls(**kwargs)  # type:  ignore
-        if cls._keep_leftovers:
+        if cls._keep_undefined:
             for key, value in parsed.items():
                 if cls._aliased(key) not in obj.__dict__:
                     obj.__dict__[key] = value
@@ -463,23 +462,6 @@ class WithSchema(Conversion[_T]):
         return self._schema
 
 
-class SchemaValidated(Conversion[_T]):
-    def __init__(self, c: Conversion[_T]):
-        self._c: Conversion[_T] = c
-
-    def to_json(self, value: _T) -> JSON:
-        j = self._c.to_json(value)
-        validate(j, self.schema())
-        return j
-
-    def from_json(self, obj: JSON) -> _T:
-        validate(obj, self.schema())
-        return self._c.from_json(obj)
-
-    def schema(self) -> Dict[str, JSON]:
-        return self._c.schema()
-
-
 datetime_iso_format_conv: Conversion[datetime.datetime] = ConversionOf(
     to_json=lambda v: v.isoformat(),
     from_json=lambda s: datetime.datetime.fromisoformat(cast(str, s)),
@@ -495,3 +477,40 @@ datetime_timestamp_conv: Conversion[datetime.datetime] = ConversionOf(
     from_json=lambda s: datetime.datetime.fromtimestamp(cast(float, s)),
     schema={"type": "number"},
 )
+
+
+@typing.overload
+def validated(cls: Type[Obj]) -> Type[Obj]:
+    ...
+
+
+@typing.overload
+def validated(cls: Type[Arr]) -> Type[Arr]:
+    ...
+
+
+def validated(cls):
+    if issubclass(cls, Obj):
+        assert hasattr(
+            cls, "_conversion"
+        ), f"'_conversion' attribute is not defined for {cls!r}"
+        assert is_dataclass(
+            cls
+        ), f"{cls!r} must be wrapped with a dataclasses.dataclass decorator"
+
+        flds = set(f.name for f in fields(cls))
+        conv_flds = set(cls._conversion.keys())
+        if flds != conv_flds:
+            flds_conv_diff = flds.difference(conv_flds)
+            conv_flds_diff = conv_flds.difference(flds)
+            msg = "Fields and conversions do not match! "
+            if flds_conv_diff:
+                msg += f"The following fields are missing in the {cls!r}._conversion map: {sorted(flds_conv_diff)}. "
+            if conv_flds_diff:
+                msg += f"The following keys from {cls!r}._conversion are not defined as attributes: {sorted(conv_flds_diff)}"
+            raise AssertionError(msg)
+    elif issubclass(cls, Arr):
+        assert hasattr(
+            cls, "conversion"
+        ), f"'conversion' attribute is not defined for {cls!r}"
+    return cls
