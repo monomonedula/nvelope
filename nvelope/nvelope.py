@@ -492,6 +492,6 @@ datetime_iso_format_conv: Conversion[datetime.datetime] = ConversionOf(
 
 datetime_timestamp_conv: Conversion[datetime.datetime] = ConversionOf(
     to_json=lambda v: v.timestamp(),
-    from_json=lambda s: datetime.datetime.fromtimestamp(s),
+    from_json=lambda s: datetime.datetime.fromtimestamp(cast(float, s)),
     schema={"type": "number"},
 )
