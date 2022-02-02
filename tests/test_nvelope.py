@@ -6,22 +6,26 @@ import pytest
 
 from nvelope.nvelope import (
     Obj,
-    CompoundConv,
-    int_conv,
-    string_conv,
     MaybeMissing,
     Jst,
     Arr,
-    datetime_iso_format_conv,
     Miss,
-    OptionalConv,
-    ListConversion,
-    MappingConv,
-    ConversionOf,
     JSON,
     NvelopeError,
     AliasTable,
     validated,
+)
+from nvelope.conversions import (
+    string_conv,
+    int_conv,
+    datetime_iso_format_conv,
+    OptionalConv,
+)
+from nvelope.conversions import (
+    CompoundConv,
+    ListConversion,
+    MappingConv,
+    ConversionOf,
 )
 
 

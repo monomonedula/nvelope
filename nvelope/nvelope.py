@@ -1,6 +1,4 @@
-import datetime
 import inspect
-import typing
 from abc import ABC, abstractmethod
 from dataclasses import fields, is_dataclass
 from functools import lru_cache
@@ -11,11 +9,6 @@ from typing import (
     Any,
     List,
     Generic,
-    Type,
-    Optional,
-    Callable,
-    cast,
-    Mapping,
 )
 
 _T = TypeVar("_T")
@@ -257,184 +250,6 @@ class Arr(Compound, Generic[_T]):
         return f"{self.__class__.__name__}{self._items!r}"
 
 
-class OptionalConv(Conversion[Optional[_T]]):
-    def __init__(self, f: Conversion[_T]):
-        self._f: Conversion[_T] = f
-
-    def to_json(self, value: Optional[_T]) -> JSON:
-        if value is None:
-            return None
-        return self._f.to_json(value)
-
-    def from_json(self, obj: JSON) -> Optional[_T]:
-        if obj is None:
-            return None
-        return self._f.from_json(obj)
-
-    def schema(self) -> Dict[str, JSON]:
-        s = self._f.schema()
-        if "type" in s:
-            s = s.copy()
-            if not isinstance(s["type"], list):
-                s["type"] = [s["type"]]
-            s["type"].append("null")
-        return s
-
-
-class CompoundConv(Conversion[Compound]):
-    def __init__(self, obj: Type[Compound]):
-        self._obj: Type[Compound] = obj
-
-    def to_json(self, value: Compound) -> JSON:
-        return self._obj.as_json(value)
-
-    def from_json(self, obj: JSON) -> Compound:
-        return self._obj.from_json(obj)
-
-    def schema(self) -> Dict[str, JSON]:
-        return self._obj.schema()
-
-
-class ConversionOf(Conversion[_T]):
-    def __init__(
-        self,
-        to_json: Callable[[_T], JSON],
-        from_json: Callable[[JSON], _T],
-        schema: Dict[str, JSON],
-    ):
-        self._to_json: Callable[[_T], JSON] = to_json
-        self._from_json: Callable[[JSON], _T] = from_json
-        self._schema: Dict[str, JSON] = schema
-
-    def to_json(self, value: _T) -> JSON:
-        return self._to_json(value)
-
-    def from_json(self, obj: JSON) -> _T:
-        return self._from_json(obj)
-
-    def schema(self) -> Dict[str, JSON]:
-        return self._schema
-
-
-class WithTypeCheck(Conversion[_T]):
-    def __init__(self, t: Type[_T], c: Conversion[_T]):
-        self._t: Type[_T] = t
-        self._c: Conversion[_T] = c
-
-    def to_json(self, value: _T) -> JSON:
-        assert isinstance(value, self._t), f"Value {value!r} is not of type {self._t!r}"
-        return self._c.to_json(value)
-
-    def from_json(self, obj: JSON) -> _T:
-        return self._c.from_json(obj)
-
-    def schema(self) -> Dict[str, JSON]:
-        return self._c.schema()
-
-
-class WithTypeCheckOnRead(Conversion[_T]):
-    def __init__(self, t: Type, c: Conversion[_T]):
-        self._t: Type = t
-        self._c: Conversion[_T] = c
-
-    def to_json(self, value: _T) -> JSON:
-        return self._c.to_json(value)
-
-    def from_json(self, obj: JSON) -> _T:
-        assert isinstance(obj, self._t), f"Value {obj!r} is not of type {self._t!r}"
-        return self._c.from_json(obj)
-
-    def schema(self) -> Dict[str, JSON]:
-        return self._c.schema()
-
-
-def with_type_check(
-    on_dump: Type[_T], on_read: Type, c: Conversion[_T]
-) -> Conversion[_T]:
-    return WithTypeCheckOnRead(on_read, WithTypeCheck(on_dump, c))
-
-
-def identity(obj: JSON) -> JSON:
-    return obj
-
-
-identity_conv: Conversion[JSON] = ConversionOf(
-    to_json=identity, from_json=identity, schema={}
-)
-
-
-string_conv = with_type_check(
-    str,
-    str,
-    ConversionOf(to_json=identity, from_json=identity, schema={"type": "string"}),
-)
-
-float_conv = with_type_check(
-    float,
-    float,
-    ConversionOf(to_json=identity, from_json=identity, schema={"type": "number"}),
-)
-
-int_conv = with_type_check(
-    int,
-    int,
-    ConversionOf(to_json=identity, from_json=identity, schema={"type": "integer"}),
-)
-
-bool_conv = with_type_check(
-    bool,
-    bool,
-    ConversionOf(to_json=identity, from_json=identity, schema={"type": "boolean"}),
-)
-
-
-class ListConversion(Conversion[List[_T]]):
-    def __init__(self, item_conv: Conversion[_T]):
-        self._conv: Conversion[_T] = item_conv
-
-    def to_json(self, value: List[_T]) -> JSON:
-        assert isinstance(value, list), f"{value!r} is not a list"
-        return [self._conv.to_json(v) for v in value]
-
-    def from_json(self, obj: JSON) -> List[_T]:
-        assert isinstance(obj, list), f"{obj!r} is not a list"
-        return [self._conv.from_json(v) for v in obj]
-
-    def schema(self) -> Dict[str, JSON]:
-        return {"type": "array", "items": self._conv.schema()}
-
-
-K = TypeVar("K")
-V = TypeVar("V")
-
-
-class MappingConv(Conversion[Mapping[K, V]]):
-    def __init__(self, key_conv: Conversion[K], val_conv: Conversion[V]):
-        self._key_conv: Conversion[K] = key_conv
-        self._val_conv: Conversion[V] = val_conv
-
-    def to_json(self, value: Mapping[K, V]) -> JSON:
-        d = {}
-        for k, v in value.items():
-            key = self._key_conv.to_json(k)
-            assert isinstance(key, str), f"{value!r} is not a string"
-            d[key] = self._val_conv.to_json(v)
-        return d
-
-    def from_json(self, obj: JSON) -> Mapping[K, V]:
-        assert isinstance(obj, dict), f"{obj!r} is not a dict"
-        return {
-            self._key_conv.from_json(k): self._val_conv.from_json(v)
-            for k, v in obj.items()
-        }
-
-    def schema(self) -> Dict[str, JSON]:
-        return {
-            "type": "object",
-            "additionalProperties": self._val_conv.schema(),
-        }
-
-
 class NvelopeError(Exception):
     def __init__(self, path, *args):
         self.path: str = path
@@ -445,48 +260,6 @@ class NvelopeError(Exception):
         if self.args:
             return f"{base}; {','.join(self.args)}"
         return base
-
-
-class WithSchema(Conversion[_T]):
-    def __init__(self, c: Conversion[_T], schema: Dict[str, JSON]):
-        self._c: Conversion[_T] = c
-        self._schema: Dict[str, JSON] = schema
-
-    def to_json(self, value: _T) -> JSON:
-        return self._c.to_json(value)
-
-    def from_json(self, obj: JSON) -> _T:
-        return self._c.from_json(obj)
-
-    def schema(self) -> Dict[str, JSON]:
-        return self._schema
-
-
-datetime_iso_format_conv: Conversion[datetime.datetime] = ConversionOf(
-    to_json=lambda v: v.isoformat(),
-    from_json=lambda s: datetime.datetime.fromisoformat(cast(str, s)),
-    schema={
-        "type": "string",
-        "pattern": r"^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$",
-    },
-)
-
-
-datetime_timestamp_conv: Conversion[datetime.datetime] = ConversionOf(
-    to_json=lambda v: v.timestamp(),
-    from_json=lambda s: datetime.datetime.fromtimestamp(cast(float, s)),
-    schema={"type": "number"},
-)
-
-
-@typing.overload
-def validated(cls: Type[Obj]) -> Type[Obj]:
-    ...
-
-
-@typing.overload
-def validated(cls: Type[Arr]) -> Type[Arr]:
-    ...
 
 
 def validated(cls):

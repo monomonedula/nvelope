@@ -7,15 +7,17 @@ import pytest
 from jsonschema import validate
 
 from nvelope import (
-    int_conv,
     Obj,
-    CompoundConv,
-    string_conv,
     Arr,
-    OptionalConv,
-    bool_conv,
     MaybeMissing,
     AliasTable,
+)
+from nvelope.conversions import (
+    string_conv,
+    int_conv,
+    bool_conv,
+    OptionalConv,
+    CompoundConv,
 )
 
 
