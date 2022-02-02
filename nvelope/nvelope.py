@@ -1,6 +1,6 @@
 import inspect
 from abc import ABC, abstractmethod
-from dataclasses import fields, is_dataclass
+from dataclasses import fields, is_dataclass, Field
 from functools import lru_cache
 from typing import (
     TypeVar,
@@ -16,10 +16,22 @@ JSON = Union[Dict[str, Any], List[Any], int, str, float, bool, None]
 
 
 def asdict(obj):
+    """
+    Converts a dataclass instance to a dictionary.
+
+    :param obj: a dataclass instance
+    :return: a dict mapping the instance attribute name to their values
+    """
     return {f.name: getattr(obj, f.name) for f in fields(obj)}
 
 
-def maybe_missing_field(f) -> bool:
+def maybe_missing_field(f: Field) -> bool:
+    """
+    Determine if a dataclass field is :class:`nvelope.nvelope.MaybeMissing`
+
+    :param f:   dataclass field
+    :return:    True if the field type is MaybeMissing
+    """
     if isinstance(f.type, str):
         return f.type.startswith("MaybeMissing[")
     return (
@@ -30,16 +42,36 @@ def maybe_missing_field(f) -> bool:
 
 
 class MaybeMissing(Generic[_T], ABC):
+    """
+    A generic interface for fields that may or may not be present in JSON object.
+
+    Use its subclass :class:`nvelope.nvelop.Jst`
+    to wrap actual values and :class:`nvelope.nvelop.Miss` class instance as a sentinel object.
+    """
+
     @abstractmethod
     def value(self) -> _T:
+        """
+        Returns value if it has one. Raises :class:`ValueError` otherwise.
+        You should check .has() method output before calling .value().
+
+        :return: encapsulated value if present.
+        """
         pass  # pragma: no cover
 
     @abstractmethod
     def has(self) -> bool:
+        """
+        :return: True if the encapsulated value is present.
+        """
         pass  # pragma: no cover
 
 
 class Jst(MaybeMissing[_T]):
+    """
+    A :class:`MaybeMissing` implementation actually containing a value.
+    """
+
     def __init__(self, v: _T):
         self._val: _T = v
 
@@ -59,6 +91,10 @@ class Jst(MaybeMissing[_T]):
 
 
 class Miss(MaybeMissing[_T]):
+    """
+    A :class:`MaybeMissing` implementation to be used as a sentinel object for missing fields.
+    """
+
     def has(self) -> bool:
         return False
 
@@ -73,36 +109,67 @@ class Miss(MaybeMissing[_T]):
 
 
 class Conversion(Generic[_T], ABC):
+    """
+    The generic interface for to/from json conversion definitions.
+    """
+
     @abstractmethod
     def to_json(self, value: _T) -> JSON:
+        """
+        Convert passed value of type _T to JSON
+        """
         pass  # pragma: no cover
 
     @abstractmethod
     def from_json(self, obj: JSON) -> _T:
+        """
+        Convert passed JSON to type _T
+        """
         pass  # pragma: no cover
 
     @abstractmethod
     def schema(self) -> Dict[str, JSON]:
+        """
+        :return: json-schema the conversion is defined for.
+        """
         pass  # pragma: no cover
 
 
 class Compound(ABC):
+    """
+    An interface for models of compound JSON entities such as arrays and objects.
+    """
+
     @abstractmethod
     def as_json(self) -> JSON:
+        """
+        :return: the object's data converted to JSON
+        """
         pass  # pragma: no cover
 
     @classmethod
     @abstractmethod
     def from_json(cls, parsed: JSON) -> "Compound":
+        """
+        :param parsed: JSON object
+        :return: a new Compound instance created from the passed JSON
+        """
         pass  # pragma: no cover
 
     @classmethod
     @abstractmethod
     def schema(cls) -> Dict[str, JSON]:
+        """
+        :return: JSON schema this model is defined for.
+        """
         pass  # pragma: no cover
 
 
 class AliasTable:
+    """
+    Mapping for field name aliases
+    """
+
     __slots__ = (
         "_alias_to_actual",
         "_actual_to_alias",
@@ -115,18 +182,52 @@ class AliasTable:
         }
 
     def aliased(self, name: str) -> str:
+        """
+        :param name:    original field name
+        :return:        name alias
+        """
         return self._actual_to_alias.get(name, name)
 
     def actual(self, alias: str) -> str:
+        """
+        :param alias:   field name alias
+        :return:        original name
+        """
         return self._alias_to_actual.get(alias, alias)
 
 
 class Obj(Compound):
+    """
+    A base class for JSON objects models.
+
+    The basic use to define a model is the following:
+        1) Subclass this class;
+        2) wrap it with the standard dataclasses.dataclass decorator;
+        3) define fields as you normally would for a dataclass;
+        4) set _conversion class property as a dict mapping field names to their corresponding conversions;
+
+    The conversions must implement :class:`nvelope.nvelope.Conversion`.
+
+
+    You may also set _alias_table class property to a custom :class:`nvelope.nvelope.AliasTable`.
+    This may be useful if the JSON contains python keywords like 'from', 'def,' etc.
+
+
+    If you set _keep_undefined = True then when using .from_json() method to create the model instance from JSON,
+    all fields from the JSON that are not part of expected schema are stored into the object's __dict__ attribute.
+
+
+    Please refer to README.md for comprehensive examples.
+    """
+
     _conversion: Dict[str, Conversion]
     _alias_table: AliasTable = AliasTable({})
     _keep_undefined = False
 
     def as_json(self) -> JSON:
+        """
+        :return: JSON representation of the current object
+        """
         obj = {}
         for name, item in asdict(self).items():
             try:
@@ -148,6 +249,10 @@ class Obj(Compound):
 
     @classmethod
     def from_json(cls, parsed: JSON) -> "Obj":
+        """
+        :param parsed: a JSON dict
+        :return: a new model instance
+        """
         assert isinstance(parsed, dict), f"{parsed!r} is not a dict"
         kwargs = {}
         for field in fields(cls):
@@ -184,6 +289,9 @@ class Obj(Compound):
     @classmethod
     @lru_cache()
     def schema(cls) -> Dict[str, JSON]:
+        """
+        :return: JSON schema the model is written for.
+        """
         return {
             "type": "object",
             "properties": {
@@ -199,6 +307,18 @@ class Obj(Compound):
 
 
 class Arr(Compound, Generic[_T]):
+    """
+    A base class for JSON arrays models.
+
+    The basic use to define a model is the following:
+        1) Subclass this class;
+        2) set the 'conversion' class to a conversion for the type this model is intended to contain.
+
+    The conversions must implement :class:`nvelope.nvelope.Conversion`.
+
+    Please refer to README.md for comprehensive examples.
+    """
+
     conversion: Conversion[_T]
 
     _items: List[_T]
@@ -218,6 +338,9 @@ class Arr(Compound, Generic[_T]):
         return False
 
     def as_json(self) -> JSON:
+        """
+        :return: JSON representation of the current object
+        """
         j = []
         for i, item in enumerate(self._items):
             try:
@@ -230,6 +353,12 @@ class Arr(Compound, Generic[_T]):
 
     @classmethod
     def from_json(cls, parsed: JSON) -> "Compound":
+        """
+        Creates model instance from the given array.
+
+        :param parsed: a JSON dict
+        :return: a new model instance
+        """
         assert isinstance(parsed, list), f"{parsed!r} is not a list"
         arr = []
         for i, item in enumerate(parsed):
@@ -244,6 +373,9 @@ class Arr(Compound, Generic[_T]):
     @classmethod
     @lru_cache()
     def schema(cls) -> Dict[str, JSON]:
+        """
+        :return: JSON schema the model is written for.
+        """
         return {"type": "array", "items": cls.conversion.schema()}
 
     def __repr__(self):
@@ -263,6 +395,10 @@ class NvelopeError(Exception):
 
 
 def validated(cls):
+    """ 
+A class decorator validating correctness of :class:`nvelope.nvelope.Obj` and :class:`nvelope.nvelope.Arr` 
+subclasses definition.
+    """ ""
     if issubclass(cls, Obj):
         assert hasattr(
             cls, "_conversion"
