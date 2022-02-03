@@ -1,5 +1,7 @@
 [![codecov](https://codecov.io/gh/monomonedula/nvelope/branch/master/graph/badge.svg?token=yunFiDdUEK)](https://codecov.io/gh/monomonedula/nvelope)
 [![Build Status](https://app.travis-ci.com/monomonedula/nvelope.svg?branch=master)](https://app.travis-ci.com/monomonedula/nvelope)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Downloads](https://pepy.tech/badge/nvelope)](https://pepy.tech/project/nvelope)
 # nvelope
 
 Define your JSON schema as Python dataclasses
