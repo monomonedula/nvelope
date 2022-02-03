@@ -17,6 +17,13 @@ _T = TypeVar("_T")
 
 
 class ConversionOf(Conversion[_T]):
+    """
+    A conversion constructed from the given to_json, from_json function and schema value.
+
+    :param to_json:     function to convert the type T to JSON
+    :param from_json:   function to convert JSON to type T
+    :param schema:      json-schema this conversion is intended for
+    """
     def __init__(
         self,
         to_json: Callable[[_T], JSON],
@@ -38,6 +45,13 @@ class ConversionOf(Conversion[_T]):
 
 
 class WithTypeCheck(Conversion[_T]):
+    """
+    Decorates the wrapped conversion with an explicit type assertion for the `to_json` method input.
+
+    :param t: expected input type for to_json method
+    :param c: the conversion being wrapped
+    """
+
     def __init__(self, t: Type[_T], c: Conversion[_T]):
         self._t: Type[_T] = t
         self._c: Conversion[_T] = c
@@ -54,6 +68,12 @@ class WithTypeCheck(Conversion[_T]):
 
 
 class WithTypeCheckOnRead(Conversion[_T]):
+    """
+    Decorates the wrapped conversion with an explicit type assertion for the `from_json` method input.
+
+    :param t: expected input type for from_json method
+    :param c: the conversion being wrapped
+    """
     def __init__(self, t: Type, c: Conversion[_T]):
         self._t: Type = t
         self._c: Conversion[_T] = c
@@ -72,6 +92,14 @@ class WithTypeCheckOnRead(Conversion[_T]):
 def with_type_checks(
     on_dump: Type[_T], on_read: Type, c: Conversion[_T]
 ) -> Conversion[_T]:
+    """
+    Wraps given conversion with :class:`WithTypeCheck` and with :class:`WithTypeCheckOnRead`.
+
+    :param on_dump: type parameter for WithTypeCheck wrapper
+    :param on_read: type parameter for WithTypeCheckOnRead wrapper
+    :param c:       the conversion being decorated
+    :return:        the wrapped conversion
+    """
     return WithTypeCheckOnRead(on_read, WithTypeCheck(on_dump, c))
 
 
@@ -119,6 +147,11 @@ datetime_timestamp_conv: Conversion[datetime.datetime] = ConversionOf(
 
 
 class OptionalConv(Conversion[Optional[_T]]):
+    """
+    A decorator creating Conversion[Optional[T]] from a Conversion[T] instance
+
+    :param f:   conversion to be decorated
+    """
     def __init__(self, f: Conversion[_T]):
         self._f: Conversion[_T] = f
 
@@ -143,6 +176,11 @@ class OptionalConv(Conversion[Optional[_T]]):
 
 
 class CompoundConv(Conversion[Compound]):
+    """
+    Create a conversion for a :class:`nvelope.nvelope.Compound` type.
+
+    :param obj: the Compound subtype
+    """
     def __init__(self, obj: Type[Compound]):
         self._obj: Type[Compound] = obj
 
@@ -157,6 +195,12 @@ class CompoundConv(Conversion[Compound]):
 
 
 class ListConversion(Conversion[List[_T]]):
+    """
+    A decorator creating Conversion[List[T]] from a Conversion[T] instance
+
+    :param item_conv:  the conversion being wrapped
+    """
+
     def __init__(self, item_conv: Conversion[_T]):
         self._conv: Conversion[_T] = item_conv
 
@@ -177,6 +221,12 @@ _V = TypeVar("_V")
 
 
 class MappingConv(Conversion[Mapping[_K, _V]]):
+    """
+    A conversion for a mapping without keys known in advance.
+
+    :param key_conv:    a conversion for the key type
+    :param val_conv:    a conversion for the value type
+    """
     def __init__(self, key_conv: Conversion[_K], val_conv: Conversion[_V]):
         self._key_conv: Conversion[_K] = key_conv
         self._val_conv: Conversion[_V] = val_conv
@@ -204,6 +254,12 @@ class MappingConv(Conversion[Mapping[_K, _V]]):
 
 
 class WithSchema(Conversion[_T]):
+    """
+    Decorate a conversion to return a different json schema from the `schema` method
+
+    :param c:   the conversion being wrapped
+    :param schema:  the new json schema
+    """
     def __init__(self, c: Conversion[_T], schema: Dict[str, JSON]):
         self._c: Conversion[_T] = c
         self._schema: Dict[str, JSON] = schema
