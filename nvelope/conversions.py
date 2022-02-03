@@ -24,6 +24,7 @@ class ConversionOf(Conversion[_T]):
     :param from_json:   function to convert JSON to type T
     :param schema:      json-schema this conversion is intended for
     """
+
     def __init__(
         self,
         to_json: Callable[[_T], JSON],
@@ -74,6 +75,7 @@ class WithTypeCheckOnRead(Conversion[_T]):
     :param t: expected input type for from_json method
     :param c: the conversion being wrapped
     """
+
     def __init__(self, t: Type, c: Conversion[_T]):
         self._t: Type = t
         self._c: Conversion[_T] = c
@@ -152,6 +154,7 @@ class OptionalConv(Conversion[Optional[_T]]):
 
     :param f:   conversion to be decorated
     """
+
     def __init__(self, f: Conversion[_T]):
         self._f: Conversion[_T] = f
 
@@ -181,6 +184,7 @@ class CompoundConv(Conversion[Compound]):
 
     :param obj: the Compound subtype
     """
+
     def __init__(self, obj: Type[Compound]):
         self._obj: Type[Compound] = obj
 
@@ -227,6 +231,7 @@ class MappingConv(Conversion[Mapping[_K, _V]]):
     :param key_conv:    a conversion for the key type
     :param val_conv:    a conversion for the value type
     """
+
     def __init__(self, key_conv: Conversion[_K], val_conv: Conversion[_V]):
         self._key_conv: Conversion[_K] = key_conv
         self._val_conv: Conversion[_V] = val_conv
@@ -260,6 +265,7 @@ class WithSchema(Conversion[_T]):
     :param c:   the conversion being wrapped
     :param schema:  the new json schema
     """
+
     def __init__(self, c: Conversion[_T], schema: Dict[str, JSON]):
         self._c: Conversion[_T] = c
         self._schema: Dict[str, JSON] = schema
