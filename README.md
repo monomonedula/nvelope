@@ -299,9 +299,9 @@ or using `nvelope.nvelope.ConversionOf` class.
 For example, this is how `datetime_iso_format_conv` is defined:
 
 ```python
-from nvelope import WithTypeCheck, ConversionOf
+from nvelope import WithTypeCheckOnDump, ConversionOf
 
-datetime_iso_format_conv = WithTypeCheck(
+datetime_iso_format_conv = WithTypeCheckOnDump(
     datetime.datetime,
     ConversionOf(
         to_json=lambda v: v.isoformat(),
@@ -321,14 +321,14 @@ datetime_timestamp_conv = ConversionOf(
 )
 ```
 
-We could also add `WithTypeCheck` wrapper in order to add explicit check that 
+We could also add `WithTypeCheckOnDump` wrapper in order to add explicit check that 
 the value passed into `.from_json()`
 is indeed `float`.
 
 ```python
 from nvelope import ConversionOf
 
-datetime_timestamp_conv = WithTypeCheck(
+datetime_timestamp_conv = WithTypeCheckOnDump(
     float,
     ConversionOf(
         to_json=lambda v: v.timestamp(),

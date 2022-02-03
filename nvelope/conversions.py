@@ -45,7 +45,7 @@ class ConversionOf(Conversion[_T]):
         return self._schema
 
 
-class WithTypeCheck(Conversion[_T]):
+class WithTypeCheckOnDump(Conversion[_T]):
     """
     Decorates the wrapped conversion with an explicit type assertion for the `to_json` method input.
 
@@ -95,14 +95,14 @@ def with_type_checks(
     on_dump: Type[_T], on_read: Type, c: Conversion[_T]
 ) -> Conversion[_T]:
     """
-    Wraps given conversion with :class:`WithTypeCheck` and with :class:`WithTypeCheckOnRead`.
+    Wraps given conversion with :class:`WithTypeCheckOnDump` and with :class:`WithTypeCheckOnRead`.
 
-    :param on_dump: type parameter for WithTypeCheck wrapper
+    :param on_dump: type parameter for WithTypeCheckOnDump wrapper
     :param on_read: type parameter for WithTypeCheckOnRead wrapper
     :param c:       the conversion being decorated
     :return:        the wrapped conversion
     """
-    return WithTypeCheckOnRead(on_read, WithTypeCheck(on_dump, c))
+    return WithTypeCheckOnRead(on_read, WithTypeCheckOnDump(on_dump, c))
 
 
 def _identity(obj: JSON) -> JSON:
