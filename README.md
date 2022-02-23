@@ -19,7 +19,7 @@ Now with JSON-schema generation!
 With `nvelope` you can define dataclasses which know how to convert themselves from/to JSON.
 All with custom checks and custom defined conversions from/to JSON for any type you want to put into your dataclass.
 
-This lbirary was deisgned with extensibility in mind, 
+This library was designed with extensibility in mind, 
 so it relies on interfaces (for the most part) rather than 
 some weird inheritance stuff and other magic.
 
