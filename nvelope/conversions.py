@@ -1,4 +1,5 @@
 import datetime
+from enum import Enum
 from typing import (
     cast,
     Optional,
@@ -278,3 +279,40 @@ class WithSchema(Conversion[_T]):
 
     def schema(self) -> Dict[str, JSON]:
         return self._schema
+
+
+_EnumT = TypeVar("_EnumT", bound=Enum)
+
+
+class EnumConversion(Conversion[_EnumT]):
+    def __init__(self, enum: Type[_EnumT], base_type: Optional[str] = None):
+        self._enum: Type[_EnumT] = enum
+        if base_type is None:
+            if len(enum.__bases__) == 1:
+                base_type = "integer"
+            else:
+                if int in enum.__bases__:
+                    base_type = "integer"
+                elif float in enum.__bases__:
+                    base_type = "number"
+                elif str in enum.__bases__:
+                    base_type = "string"
+                else:
+                    raise TypeError(
+                        f"Coundn't recognize base type for enum {enum!r}"
+                        f"to specify it in json-schema."
+                        f"Provide it explicitly as `base_type` parameter."
+                    )
+        self._base: str = base_type
+
+    def to_json(self, value: _EnumT) -> JSON:
+        return value.value
+
+    def from_json(self, obj: JSON) -> _EnumT:
+        return self._enum(obj)
+
+    def schema(self) -> Dict[str, JSON]:
+        return {
+            "type": self._base,
+            "enum": [v.value for v in self._enum],
+        }
