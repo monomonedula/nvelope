@@ -1,4 +1,5 @@
 from enum import Enum, IntEnum
+from typing import Tuple
 
 from nvelope import EnumConversion
 import pytest
@@ -41,9 +42,9 @@ def test_enum_conv_schema():
 
 
 def test_enum_conv_schema_err():
-    class Foo(dict, Enum):
-        x = {"foo": 1}
-        y = {"boo": 4}
+    class Foo(tuple, Enum):
+        x = (3, 4)
+        y = (5, 6)
 
     with pytest.raises(TypeError):
         assert EnumConversion(Foo)
