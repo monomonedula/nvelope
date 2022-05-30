@@ -38,3 +38,12 @@ def test_enum_conv_schema():
     assert EnumConversion(Foo1).schema() == {"type": "integer", "enum": [1, 2]}
     assert EnumConversion(Foo2).schema() == {"type": "string", "enum": ["foo", "bar"]}
     assert EnumConversion(Foo3).schema() == {"type": "number", "enum": [1.2, 4.6]}
+
+
+def test_enum_conv_schema_err():
+    class Foo(dict, Enum):
+        x = {"foo": 1}
+        y = {"boo": 4}
+
+    with pytest.raises(TypeError):
+        assert EnumConversion(Foo)
