@@ -9,6 +9,7 @@ from typing import (
     Any,
     List,
     Generic,
+    Type,
 )
 
 _T = TypeVar("_T")
@@ -196,6 +197,9 @@ class AliasTable:
         return self._alias_to_actual.get(alias, alias)
 
 
+T = TypeVar("T", bound="Obj")
+
+
 class Obj(Compound):
     """
     A base class for JSON objects models.
@@ -248,7 +252,7 @@ class Obj(Compound):
         return obj
 
     @classmethod
-    def from_json(cls, parsed: JSON) -> "Obj":
+    def from_json(cls: Type[T], parsed: JSON) -> T:
         """
         :param parsed: a JSON dict
         :return: a new model instance

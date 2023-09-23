@@ -26,6 +26,12 @@ class ConversionOf(Conversion[_T]):
     :param schema:      json-schema this conversion is intended for
     """
 
+    __slots__ = (
+        "_to_json",
+        "_from_json",
+        "_schema",
+    )
+
     def __init__(
         self,
         to_json: Callable[[_T], JSON],
@@ -156,6 +162,8 @@ class OptionalConv(Conversion[Optional[_T]]):
     :param f:   conversion to be decorated
     """
 
+    __slots__ = ("_f",)
+
     def __init__(self, f: Conversion[_T]):
         self._f: Conversion[_T] = f
 
@@ -186,6 +194,8 @@ class CompoundConv(Conversion[Compound]):
     :param obj: the Compound subtype
     """
 
+    __slots__ = ("_obj",)
+
     def __init__(self, obj: Type[Compound]):
         self._obj: Type[Compound] = obj
 
@@ -205,6 +215,8 @@ class ListConversion(Conversion[List[_T]]):
 
     :param item_conv:  the conversion being wrapped
     """
+
+    __slots__ = ("_conv",)
 
     def __init__(self, item_conv: Conversion[_T]):
         self._conv: Conversion[_T] = item_conv
@@ -232,6 +244,8 @@ class MappingConv(Conversion[Mapping[_K, _V]]):
     :param key_conv:    a conversion for the key type
     :param val_conv:    a conversion for the value type
     """
+
+    __slots__ = ("_key_conv", "_val_conv")
 
     def __init__(self, key_conv: Conversion[_K], val_conv: Conversion[_V]):
         self._key_conv: Conversion[_K] = key_conv
@@ -267,6 +281,8 @@ class WithSchema(Conversion[_T]):
     :param schema:  the new json schema
     """
 
+    __slots__ = ("_c", "_schema")
+
     def __init__(self, c: Conversion[_T], schema: Dict[str, JSON]):
         self._c: Conversion[_T] = c
         self._schema: Dict[str, JSON] = schema
@@ -285,6 +301,9 @@ _EnumT = TypeVar("_EnumT", bound=Enum)
 
 
 class EnumConversion(Conversion[_EnumT]):
+
+    __slots__ = ("_enum", "_base")
+
     def __init__(self, enum: Type[_EnumT], base_type: Optional[str] = None):
         self._enum: Type[_EnumT] = enum
         if base_type is None:
